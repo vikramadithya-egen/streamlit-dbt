@@ -1,0 +1,2 @@
+gcloud builds submit --tag gcr.io/springmldemoproject/dbt-streamlit  --project=springmldemoproject
+gcloud run deploy --image gcr.io/springmldemoproject/dbt-streamlit --platform managed  --project=springmldemoproject --allow-unauthenticated
