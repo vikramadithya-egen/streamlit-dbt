@@ -55,6 +55,16 @@ def modify_df(df_main,status):
     df_new.rename(columns = {'Test_count':status}, inplace = True)
     return df_new
 
+@st.cache(allow_output_mutation=True) 
+def make_date_compatible(df_main):
+    utc=pytz.UTC
+    for i in range(len(df_main['execution_time'])):
+        temp = df_main['execution_time'][i]
+        temp = temp.to_pydatetime()
+        df_main['execution_time'][i] = temp.replace(tzinfo=utc)
+    
+
+
 def merge_df(df_passed,df_failed):
     # print(df_passed ,df_failed ,"both")
     if df_passed.empty and df_failed.empty :
@@ -84,6 +94,7 @@ def get_table_data(df_main):
 def get_failed_rows(df_main):
     df_temp = df_main[['test_name','rows_failed']].copy()
     if not df_temp.empty:
+        df_temp = df_temp.groupby('test_name',as_index=False).agg({'rows_failed': 'sum'}) #not using groupby column as index 
         df_temp.loc[len(df_temp.index)] = ['Grand Total',df_temp['rows_failed'].sum()]
     else:
         df_temp.loc[len(df_temp.index)] = ['No Data',0]
@@ -141,7 +152,7 @@ st.markdown(
                 text-align:center;
                 padding:150px;
                 }
-            #MainMenu {visibility: hidden;}
+            
 
             </style>
             """,
@@ -164,13 +175,19 @@ with col1:
 
 
 utc=pytz.UTC
-df_main = load_data_SF()
-# print(df_main,"one")
-# converting dates that are compatible with DB dates 
 start_d = datetime.combine(start_d, datetime.min.time())
 end_d = datetime.combine(end_d, datetime.max.time())
 start_d = utc.localize(start_d)
 end_d = utc.localize(end_d)
+
+df_main = load_data_SF() #load data from snowflake
+if ( 'datetime.datetime' in str(type(df_main['execution_time'][0])) ):
+    ...
+else:
+    make_date_compatible(df_main)
+
+# print(df_main,"one")
+# converting dates that are compatible with DB dates 
 
 
 
@@ -183,6 +200,7 @@ if (end_d >= start_d):
 
     with col1:
         st.write('<div><span class="date-text"><b style="color:#a83268">Start Date:\n</b>{start_date}</span><span class="date-text"><b style="color:#a83268">End Date:\n</b>{end_date}\n</span></div>'.format(start_date = start_d.strftime("%d %b, %Y"),end_date = end_d.strftime("%d %b, %Y")),unsafe_allow_html=True)
+        
         try:
             oldest_date = str(df_main['execution_time'].min().strftime("%d %b,%Y")) +" " + str(df_main['execution_time'].min().strftime("%H:%M:%S") )
             latest_date = str(df_main['execution_time'].max().strftime("%d %b,%Y")) +" " + str(df_main['execution_time'].max().strftime("%H:%M:%S") )
@@ -213,7 +231,7 @@ if (end_d >= start_d):
             if submitted:
                 print("lul")
 
-        print(submitted ,options,"submitted and options.....................")
+        # print(submitted ,options,"submitted and options.....................")
                 
     
     df_exec = df_main.copy()
@@ -256,6 +274,7 @@ if (end_d >= start_d):
 
         #graph two
         st.bar_chart(data_two,width=500,height=400,use_container_width=False) 
+
         
         
     with col3:
@@ -289,7 +308,8 @@ if (end_d >= start_d):
 
 
 else:
-    st.markdown(f'<p style="text-size:20px">Start date should not be greater than end Date</p>',unsafe_allow_html=True)
+    ...
+    # st.markdown(f'<p style="text-size:20px">Start date should not be greater than end Date</p>',unsafe_allow_html=True)
 
 
 
