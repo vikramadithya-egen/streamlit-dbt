@@ -180,7 +180,7 @@ end_d = utc.localize(end_d)
 df_main = load_data_SF() #load data from snowflake
 print("function executed")
 if ( 'datetime.datetime' in str(type(df_main['execution_time'][0])) ):
-    ...
+    print()
 else:
     make_date_compatible(df_main)
 print("dates compatible")
@@ -227,8 +227,7 @@ if (end_d >= start_d):
             options = st.multiselect('Select test names ',temp_df)
             submitted = st.form_submit_button("Submit")
             if submitted:
-                ...
-                # print("lul")
+                print()
 
         # print(submitted ,options,"submitted and options.....................")
                 
@@ -307,8 +306,7 @@ if (end_d >= start_d):
 
 
 else:
-    ...
-    # st.markdown(f'<p style="text-size:20px">Start date should not be greater than end Date</p>',unsafe_allow_html=True)
+    st.markdown(f'<p style="text-size:20px">Start date should not be greater than end Date</p>',unsafe_allow_html=True)
 
 
 
