@@ -18,12 +18,6 @@ import pytz
 
 st.set_page_config(layout="wide")
 
-@st.cache(allow_output_mutation=True)
-def load_data(DATA_URL):
-    data = pd.read_csv(DATA_URL)
-    lowercase = lambda x : str(x).lower()
-    data.rename(lowercase,axis='columns',inplace=True)
-    return data 
 
 @st.cache(allow_output_mutation=True)# snowflake DB connection
 def load_data_SF():  
@@ -37,9 +31,12 @@ def load_data_SF():
     role = 'SYSADMIN'
     )
     cur = conn.cursor()
-    sql = "select * from AGGREGATE_RESULTS"
+    sql = "select * from AGGREGATE_RESULTS;"
     cur.execute(sql)
     data = cur.fetch_pandas_all()
+    cur.close()
+    print(data)
+    print("data retrieved")
     lowercase = lambda x : str(x).lower()
     data.rename(lowercase,axis='columns',inplace=True)
     return data 
@@ -181,21 +178,22 @@ start_d = utc.localize(start_d)
 end_d = utc.localize(end_d)
 
 df_main = load_data_SF() #load data from snowflake
+print("function executed")
 if ( 'datetime.datetime' in str(type(df_main['execution_time'][0])) ):
     ...
 else:
     make_date_compatible(df_main)
-
+print("dates compatible")
 # print(df_main,"one")
 # converting dates that are compatible with DB dates 
 
 
 
 if (end_d >= start_d):
-    print(start_d,end_d)
+    # print(start_d,end_d)
     df_main = df_main[(df_main['execution_time'] >= start_d) & (df_main['execution_time'] <= end_d)]
     df_main.reset_index(inplace = True, drop = True)
-    print(df_main,"two")
+    # print(df_main,"two")
 
 
     with col1:
@@ -229,7 +227,8 @@ if (end_d >= start_d):
             options = st.multiselect('Select test names ',temp_df)
             submitted = st.form_submit_button("Submit")
             if submitted:
-                print("lul")
+                ...
+                # print("lul")
 
         # print(submitted ,options,"submitted and options.....................")
                 
@@ -237,11 +236,11 @@ if (end_d >= start_d):
     df_exec = df_main.copy()
     del df_exec['execution_time'] #dropping execution_time column
     del df_exec['rows_failed'] #dropping rows_failed column to modify and show only test_name,passed,failed columns
-    print(df_exec)
+    # print(df_exec)
     df_passed = modify_df(df_exec,'PASSED')
     df_failed = modify_df(df_exec,'FAILED')
     final_df = merge_df(df_passed,df_failed)
-    print(final_df)
+    # print(final_df)
 
     with col1:
         if submitted:
