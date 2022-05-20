@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 import plotly.graph_objects as go
-import snowflake.connector
+import snowflake.connector as sfc
 from snowflake.sqlalchemy import URL
 from sqlalchemy import create_engine
 from datetime import datetime
@@ -12,33 +12,47 @@ import plotly.express as px
 from PIL import Image
 import base64
 import pytz
-
-
+import ast
+from google.cloud import secretmanager
 
 
 st.set_page_config(layout="wide")
 
 
+
+PROJECT_ID="springmldemoproject"
+def get_secret(secret_id, project_id="springmldemoproject", secret_version_id="1", client=None):
+        if client is None:
+            client = secretmanager.SecretManagerServiceClient()
+        if project_id is None:
+            project_id = PROJECT_ID
+        secret_location = f"projects/{project_id}/secrets/{secret_id}/versions/{secret_version_id}"
+        response = client.access_secret_version(request={"name": secret_location})
+        return response.payload.data.decode("UTF-8")
+
+
 @st.cache(allow_output_mutation=True)# snowflake DB connection
-def load_data_SF():  
-    conn = snowflake.connector.connect(
-    user='vikramadithya.baddam@springml.com',
-    password='Sunny@365',
-    account='bp02230.us-central1.gcp',
+def load_data_SF():
+    cred_dict = ast.literal_eval(get_secret("dbt-streamlit"))
+    conn = sfc.connect(
+    user=cred_dict['user'],
+    password=cred_dict['password'],
+    account=cred_dict['account'],
     warehouse='LOAD_WH',
     database='DBT_TEST',
     schema='DBT_TEST_DEMO_DBT_TEST__AUDIT',
     role = 'SYSADMIN'
     )
     cur = conn.cursor()
-    sql = "select * from AGGREGATE_RESULTS;"
-    cur.execute(sql)
-    data = cur.fetch_pandas_all()
-    cur.close()
-    print(data)
-    print("data retrieved")
+    sql = f"select * from DBT_TEST_DEMO_DBT_TEST__AUDIT.AGGREGATE_RESULTS"
+    cur.execute(f"USE DATABASE DBT_TEST")
+    data = pd.read_sql_query(sql, conn)
+    # print(data)
+    # cur.execute(sql)
+    # data = cur.fetch_pandas_all()
     lowercase = lambda x : str(x).lower()
     data.rename(lowercase,axis='columns',inplace=True)
+    
     return data 
 
 
@@ -165,7 +179,7 @@ col1, buffer , col3 = st.columns([5,0.2,4.5])
 with col1:
     st.write('<div class="title">DBT Testing Summary</div>',unsafe_allow_html=True)
 
-    initial = datetime(2020, 1, 1)
+    initial = datetime(2022, 1, 1)
     final = datetime(2023, 1, 1)
     range_ = st.slider('Select Date\n\n',min_value=initial, value=(initial, final), max_value=final, format="YY/MM/DD")
     start_d , end_d= range_[0],range_[1]
@@ -200,8 +214,8 @@ if (end_d >= start_d):
         st.write('<div><span class="date-text"><b style="color:#a83268">Start Date:\n</b>{start_date}</span><span class="date-text"><b style="color:#a83268">End Date:\n</b>{end_date}\n</span></div>'.format(start_date = start_d.strftime("%d %b, %Y"),end_date = end_d.strftime("%d %b, %Y")),unsafe_allow_html=True)
         
         try:
-            oldest_date = str(df_main['execution_time'].min().strftime("%d %b,%Y")) +" " + str(df_main['execution_time'].min().strftime("%H:%M:%S") )
-            latest_date = str(df_main['execution_time'].max().strftime("%d %b,%Y")) +" " + str(df_main['execution_time'].max().strftime("%H:%M:%S") )
+            oldest_date = str(df_main['execution_time'].min().strftime("%d %b,%Y")) +" " + str(df_main['execution_time'].min().strftime("%H:%M:%S") +" (UTC)" )
+            latest_date = str(df_main['execution_time'].max().strftime("%d %b,%Y")) +" " + str(df_main['execution_time'].max().strftime("%H:%M:%S") +" (UTC)" )
         except :
             oldest_date = None
             latest_date = None
@@ -271,7 +285,14 @@ if (end_d >= start_d):
         st.plotly_chart(fig, use_container_width=True) 
 
         #graph two
-        st.bar_chart(data_two,width=500,height=400,use_container_width=False) 
+        # st.bar_chart(data_two,width=500,height=400,use_container_width=False) 
+        if submitted: 
+            styler_three = df_filter_fail_rows.style.hide(axis = 'index')
+        else:
+            styler_three = df_fail_rows.style.hide(axis = 'index') 
+        st.write(styler_three.to_html(), unsafe_allow_html=True)
+        st.markdown("""<style>.row_heading.level0 {display:none}.blank {display:none} .table-border{border: 1px solid black;}</style> <br><br>""", unsafe_allow_html=True) #table three 
+
 
         
         
@@ -279,10 +300,9 @@ if (end_d >= start_d):
         print("\n\n")
         if submitted:
             final_df = filtered_df
-            df_fail_rows = df_filter_fail_rows
         else:
             final_df = final_df
-            df_fail_rows = df_fail_rows
+            
             
         # print(final_df['test_name'].values,"final  df..............")
         if (final_df['test_name'].values[0] == 'No Data'):
@@ -297,13 +317,9 @@ if (end_d >= start_d):
         st.write(styler_one.to_html(), unsafe_allow_html=True)
         st.markdown("""<style>.row_heading.level0 {display:none}.blank {display:none}</style> <br><br><br>""", unsafe_allow_html=True) #table one 
         
-        st.dataframe(final_df,width=None,height=700) #table two
-        st.markdown('##')
         
-        styler_three = df_fail_rows.style.hide(axis = 'index') 
-        st.write(styler_three.to_html(), unsafe_allow_html=True)
-        st.markdown("""<style>.row_heading.level0 {display:none}.blank {display:none} .table-border{border: 1px solid black;}</style> <br><br>""", unsafe_allow_html=True) #table three 
-
+        
+        
 
 else:
     st.markdown(f'<p style="text-size:20px">Start date should not be greater than end Date</p>',unsafe_allow_html=True)
